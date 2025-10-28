@@ -1,0 +1,21 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+typechain-types
+
+# Hardhat files
+cache
+artifacts
+
+# Deployment files (optional - comment out if you want to track deployments)
+deployments/*.json
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store

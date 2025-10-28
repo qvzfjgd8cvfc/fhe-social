@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Pixel art light theme - Pastel colors */
+    --background: 45 40% 96%;
+    --foreground: 240 10% 25%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 25%;
+
+    /* Mint green primary */
+    --primary: 150 60% 70%;
+    --primary-foreground: 240 10% 25%;
+
+    /* Lavender secondary */
+    --secondary: 270 50% 85%;
+    --secondary-foreground: 240 10% 25%;
+
+    --muted: 45 30% 90%;
+    --muted-foreground: 240 10% 50%;
+
+    /* Sky blue accent */
+    --accent: 200 70% 80%;
+    --accent-foreground: 240 10% 25%;
+
+    /* Peach destructive */
+    --destructive: 15 80% 70%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 10% 80%;
+    --input: 240 10% 90%;
+    --ring: 150 60% 60%;
+
+    --radius: 0;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Keep light theme colors for pixel art style */
+    --background: 45 40% 96%;
+    --foreground: 240 10% 25%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 25%;
+
+    --primary: 150 60% 70%;
+    --primary-foreground: 240 10% 25%;
+
+    --secondary: 270 50% 85%;
+    --secondary-foreground: 240 10% 25%;
+
+    --muted: 45 30% 90%;
+    --muted-foreground: 240 10% 50%;
+
+    --accent: 200 70% 80%;
+    --accent-foreground: 240 10% 25%;
+
+    --destructive: 15 80% 70%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 10% 80%;
+    --input: 240 10% 90%;
+    --ring: 150 60% 60%;
+    --sidebar-background: 45 40% 96%;
+    --sidebar-foreground: 240 10% 25%;
+    --sidebar-primary: 150 60% 70%;
+    --sidebar-primary-foreground: 240 10% 25%;
+    --sidebar-accent: 270 50% 85%;
+    --sidebar-accent-foreground: 240 10% 25%;
+    --sidebar-border: 240 10% 80%;
+    --sidebar-ring: 150 60% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Press Start 2P', cursive;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Press Start 2P', cursive;
+  }
+}
+
+@layer utilities {
+  .pixel-border {
+    box-shadow: 
+      4px 0 0 0 hsl(var(--border)),
+      -4px 0 0 0 hsl(var(--border)),
+      0 4px 0 0 hsl(var(--border)),
+      0 -4px 0 0 hsl(var(--border)),
+      4px 4px 0 0 hsl(var(--border)),
+      -4px -4px 0 0 hsl(var(--border)),
+      4px -4px 0 0 hsl(var(--border)),
+      -4px 4px 0 0 hsl(var(--border));
+  }
+
+  .pixel-shadow {
+    box-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.1);
+  }
+}
