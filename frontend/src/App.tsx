@@ -9,6 +9,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { config } from './config/wagmi';
 import Index from "./pages/Index";
 import Discussion from "./pages/Discussion";
+import ChannelDetail from "./pages/ChannelDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/channel/:channelId" element={<ChannelDetail />} />
               <Route path="/discussion/:id" element={<Discussion />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

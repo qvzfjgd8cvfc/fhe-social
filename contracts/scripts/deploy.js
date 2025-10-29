@@ -49,15 +49,24 @@ async function main() {
   console.log("5. Setting up authorization...");
 
   console.log("  - Authorizing FHESocialV2 on UserRegistry...");
-  await userRegistry.setAuthorization(fheSocialAddress, true);
+  const tx1 = await userRegistry.setAuthorization(fheSocialAddress, true);
+  await tx1.wait();
   console.log("  ✅ Authorization set\n");
+
+  // Wait 5 seconds between transactions
+  await new Promise(resolve => setTimeout(resolve, 5000));
 
   console.log("  - Authorizing FHESocialV2 on ChannelManager...");
-  await channelManager.setAuthorization(fheSocialAddress, true);
+  const tx2 = await channelManager.setAuthorization(fheSocialAddress, true);
+  await tx2.wait();
   console.log("  ✅ Authorization set\n");
 
+  // Wait 5 seconds between transactions
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
   console.log("  - Authorizing FHESocialV2 on MessageManager...");
-  await messageManager.setAuthorization(fheSocialAddress, true);
+  const tx3 = await messageManager.setAuthorization(fheSocialAddress, true);
+  await tx3.wait();
   console.log("  ✅ Authorization set\n");
 
   // Save deployment info

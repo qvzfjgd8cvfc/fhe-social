@@ -15,8 +15,8 @@ export function useFHESocial() {
    */
   const registerUser = async (username: string) => {
     return writeContract({
-      address: CONTRACTS.FHESocialV2,
-      abi: ABIS.FHESocialV2,
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
       functionName: 'registerUser',
       args: [username],
     });
@@ -27,8 +27,8 @@ export function useFHESocial() {
    */
   const updateUsername = async (newUsername: string) => {
     return writeContract({
-      address: CONTRACTS.FHESocialV2,
-      abi: ABIS.FHESocialV2,
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
       functionName: 'updateUsername',
       args: [newUsername],
     });
@@ -37,14 +37,39 @@ export function useFHESocial() {
   // ============= Channel Functions =============
 
   /**
-   * Create a new channel
+   * Create a channel with voting (NEW)
    */
-  const createChannel = async (name: string, description: string) => {
+  const createChannelWithVote = async (
+    name: string,
+    description: string,
+    voteQuestion: string,
+    voteOptions: string[],
+    isMultiChoice: boolean
+  ) => {
     return writeContract({
-      address: CONTRACTS.FHESocialV2,
-      abi: ABIS.FHESocialV2,
-      functionName: 'createChannel',
-      args: [name, description],
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
+      functionName: 'createChannelWithVote',
+      args: [name, description, voteQuestion, voteOptions, isMultiChoice],
+    });
+  };
+
+  /**
+   * Cast encrypted vote (NEW)
+   * @param channelId - Channel ID to vote in
+   * @param encryptedOption - Encrypted option handle (from FHE SDK)
+   * @param proof - ZK proof (from FHE SDK)
+   */
+  const vote = async (
+    channelId: bigint,
+    encryptedOption: `0x${string}`,
+    proof: `0x${string}`
+  ) => {
+    return writeContract({
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
+      functionName: 'vote',
+      args: [channelId, encryptedOption, proof],
     });
   };
 
@@ -55,8 +80,8 @@ export function useFHESocial() {
    */
   const postMessage = async (channelId: bigint, content: string) => {
     return writeContract({
-      address: CONTRACTS.FHESocialV2,
-      abi: ABIS.FHESocialV2,
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
       functionName: 'postMessage',
       args: [channelId, content],
     });
@@ -67,8 +92,8 @@ export function useFHESocial() {
    */
   const postReply = async (messageId: bigint, content: string) => {
     return writeContract({
-      address: CONTRACTS.FHESocialV2,
-      abi: ABIS.FHESocialV2,
+      address: CONTRACTS.FHESocialVoting,
+      abi: ABIS.FHESocialVoting,
       functionName: 'postReply',
       args: [messageId, content],
     });
@@ -78,10 +103,11 @@ export function useFHESocial() {
     // Write functions
     registerUser,
     updateUsername,
-    createChannel,
+    createChannelWithVote,
+    vote,
     postMessage,
     postReply,
-    
+
     // Transaction state
     isPending,
     isConfirming,
@@ -98,8 +124,8 @@ export function useFHESocial() {
  */
 export function useUserProfile(address?: `0x${string}`) {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getUserProfile',
     args: address ? [address] : undefined,
     query: {
@@ -113,8 +139,8 @@ export function useUserProfile(address?: `0x${string}`) {
  */
 export function useChannel(channelId?: bigint) {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getChannel',
     args: channelId !== undefined ? [channelId] : undefined,
     query: {
@@ -128,8 +154,8 @@ export function useChannel(channelId?: bigint) {
  */
 export function useMessage(messageId?: bigint) {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getMessage',
     args: messageId !== undefined ? [messageId] : undefined,
     query: {
@@ -143,8 +169,8 @@ export function useMessage(messageId?: bigint) {
  */
 export function useChannelMessages(channelId?: bigint) {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getChannelMessages',
     args: channelId !== undefined ? [channelId] : undefined,
     query: {
@@ -159,8 +185,8 @@ export function useChannelMessages(channelId?: bigint) {
  */
 export function useStats() {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getStats',
     query: {
       refetchInterval: 10000, // Refetch every 10 seconds
@@ -173,12 +199,42 @@ export function useStats() {
  */
 export function useReply(messageId?: bigint, replyId?: bigint) {
   return useReadContract({
-    address: CONTRACTS.FHESocialV2,
-    abi: ABIS.FHESocialV2,
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
     functionName: 'getReply',
     args: messageId !== undefined && replyId !== undefined ? [messageId, replyId] : undefined,
     query: {
       enabled: messageId !== undefined && replyId !== undefined,
+    },
+  });
+}
+
+/**
+ * Get vote info (NEW)
+ */
+export function useVoteInfo(channelId?: bigint) {
+  return useReadContract({
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
+    functionName: 'getVoteInfo',
+    args: channelId !== undefined ? [channelId] : undefined,
+    query: {
+      enabled: channelId !== undefined,
+    },
+  });
+}
+
+/**
+ * Check if user has voted (NEW)
+ */
+export function useHasVoted(channelId?: bigint, address?: `0x${string}`) {
+  return useReadContract({
+    address: CONTRACTS.FHESocialVoting,
+    abi: ABIS.FHESocialVoting,
+    functionName: 'hasVoted',
+    args: channelId !== undefined && address ? [channelId, address] : undefined,
+    query: {
+      enabled: channelId !== undefined && !!address,
     },
   });
 }

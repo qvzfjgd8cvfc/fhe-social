@@ -7,6 +7,11 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      // Required for SharedArrayBuffer (FHE WASM threads)
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+    },
   },
   plugins: [react()],
   resolve: {

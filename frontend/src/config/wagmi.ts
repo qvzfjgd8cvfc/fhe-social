@@ -1,9 +1,9 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { mainnet, polygon, optimism, arbitrum, base } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 
 export const config = getDefaultConfig({
   appName: 'FHE Social',
   projectId: 'YOUR_PROJECT_ID', // Get from WalletConnect Cloud
-  chains: [mainnet, polygon, optimism, arbitrum, base],
+  chains: [sepolia],
   ssr: false,
 });

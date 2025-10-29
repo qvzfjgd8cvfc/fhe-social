@@ -3,7 +3,8 @@
  * Uses Zama Relayer SDK 0.2.0 via CDN
  */
 
-import { hexlify, getAddress } from 'ethers';
+import { getAddress as getEthersAddress } from 'ethers';
+import { getAddress, toHex } from 'viem';
 
 // Declare global relayerSDK from CDN
 declare global {
@@ -64,17 +65,20 @@ const loadSdk = async (): Promise<any> => {
 };
 
 /**
- * Ensure handle and proof are present in encryption result
+ * Ensure handle and proof are present in encryption result and convert to hex
  */
-const ensureHandlePayload = (result: any) => {
-  const handles = result?.handles ?? (result?.handle ? [result.handle] : undefined);
-  const proof = result?.inputProof ?? result?.proof;
-
-  if (!handles?.length || !proof) {
-    throw new Error('FHE encryption failed: missing handles or proof');
+const ensureHandlePayload = (handles: unknown[], inputProof: Uint8Array): { handle: `0x${string}`; proof: `0x${string}` } => {
+  if (!Array.isArray(handles) || handles.length === 0) {
+    throw new Error('Encryption did not return any handles');
+  }
+  if (!inputProof) {
+    throw new Error('Encryption did not return inputProof');
   }
 
-  return { handles, proof };
+  return {
+    handle: toHex(handles[0] as Uint8Array),
+    proof: toHex(inputProof),
+  };
 };
 
 /**
@@ -158,13 +162,28 @@ export const encryptUint8 = async (
 
   console.log('⏳ Encrypting...');
   const result = await input.encrypt();
-  const { handles, proof } = ensureHandlePayload(result);
-  console.log('✅ Encrypted uint8');
+  console.log('📦 Raw encryption result:', result);
+  console.log('📦 Result type:', typeof result);
+  console.log('📦 Result keys:', Object.keys(result || {}));
 
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(proof),
-  };
+  if (!result) {
+    throw new Error('Encryption returned null or undefined');
+  }
+
+  const { handles, inputProof } = result;
+  console.log('📝 Handles:', handles);
+  console.log('📝 InputProof:', inputProof);
+  console.log('📝 InputProof type:', typeof inputProof);
+  console.log('📝 InputProof length:', inputProof?.length);
+
+  const payload = ensureHandlePayload(handles, inputProof);
+
+  console.log('✅ Encrypted uint8 successfully');
+  console.log('📝 Final handle:', payload.handle);
+  console.log('📝 Final proof:', payload.proof);
+  console.log('📝 Final proof length:', payload.proof.length);
+
+  return payload;
 };
 
 /**
@@ -189,13 +208,11 @@ export const encryptUint16 = async (
 
   console.log('⏳ Encrypting...');
   const result = await input.encrypt();
-  const { handles, proof } = ensureHandlePayload(result);
+  const { handles, inputProof } = result;
+  const payload = ensureHandlePayload(handles, inputProof);
   console.log('✅ Encrypted uint16');
 
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(proof),
-  };
+  return payload;
 };
 
 /**
@@ -216,13 +233,11 @@ export const encryptUint32 = async (
 
   console.log('⏳ Encrypting...');
   const result = await input.encrypt();
-  const { handles, proof } = ensureHandlePayload(result);
+  const { handles, inputProof } = result;
+  const payload = ensureHandlePayload(handles, inputProof);
   console.log('✅ Encrypted uint32');
 
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(proof),
-  };
+  return payload;
 };
 
 /**
@@ -243,13 +258,11 @@ export const encryptUint64 = async (
 
   console.log('⏳ Encrypting...');
   const result = await input.encrypt();
-  const { handles, proof } = ensureHandlePayload(result);
+  const { handles, inputProof } = result;
+  const payload = ensureHandlePayload(handles, inputProof);
   console.log('✅ Encrypted uint64');
 
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(proof),
-  };
+  return payload;
 };
 
 /**
