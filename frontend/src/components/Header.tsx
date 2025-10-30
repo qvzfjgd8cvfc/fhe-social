@@ -1,5 +1,5 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Shield } from 'lucide-react';
+// brand logo uses public/favicon.svg (pixel chat bubble)
 import { Link } from 'react-router-dom';
 
 const Header = () => {
@@ -8,8 +8,8 @@ const Header = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Shield className="w-8 h-8 text-primary" />
-            <h1 className="text-xl text-foreground">FHE SOCIAL</h1>
+            <img src="/favicon.svg" alt="VoxCircle" className="w-8 h-8" />
+            <h1 className="text-xl text-foreground">VoxCircle</h1>
           </Link>
           
           <div className="flex items-center gap-4">

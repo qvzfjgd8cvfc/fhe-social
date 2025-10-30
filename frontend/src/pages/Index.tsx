@@ -1,7 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { useReadContract } from 'wagmi';
 import Header from '@/components/Header';
 import DiscussionCard from '@/components/DiscussionCard';
 import { Button } from '@/components/ui/button';
@@ -16,37 +15,39 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useFHESocial, useStats, useUserProfile } from '@/hooks/useFHESocial';
-import { CONTRACTS, ABIS } from '@/contracts/constants';
+import { useFHESocial, useUser, useChannelCount } from '@/hooks/useFHESocial';
 import { toast } from 'sonner';
 
 const Index = () => {
   const { address, isConnected } = useAccount();
-  const { registerUser, createChannelWithVote, isPending, isConfirmed } = useFHESocial();
-  const { data: stats, refetch: refetchStats } = useStats();
-  const { data: userProfile, refetch: refetchUserProfile } = useUserProfile(address);
+  const { register, createChannelWithVote, isPending, isConfirmed } = useFHESocial();
+  const { data: userData, refetch: refetchUser } = useUser(address);
+  const { data: channelCount, refetch: refetchChannelCount } = useChannelCount();
 
   const [channelName, setChannelName] = useState('');
   const [channelDescription, setChannelDescription] = useState('');
   const [voteQuestion, setVoteQuestion] = useState('');
   const [voteOptions, setVoteOptions] = useState(['', '']);
+  const [voteDuration, setVoteDuration] = useState('7'); // days
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [channels, setChannels] = useState<any[]>([]);
+  const [pendingAction, setPendingAction] = useState<'register' | 'createChannel' | null>(null);
 
   // Check if user is registered
-  const isUserRegistered = userProfile ? userProfile[4] : false;
+  const isUserRegistered = userData ? userData[1] : false; // userData = [username, registered, registeredAt]
+  const userUsername = userData ? userData[0] : '';
 
   // Get total channel count
-  const totalChannels = stats ? Number(stats[1]) : 0;
+  const totalChannels = channelCount ? Number(channelCount) : 0;
 
   // Auto-prompt registration when user connects wallet
   useEffect(() => {
-    if (isConnected && address && !isUserRegistered && userProfile !== undefined) {
+    if (isConnected && address && !isUserRegistered && userData !== undefined) {
       setIsRegisterDialogOpen(true);
     }
-  }, [isConnected, address, isUserRegistered, userProfile]);
+  }, [isConnected, address, isUserRegistered, userData]);
 
   // Create channel list based on total count
   useEffect(() => {
@@ -83,12 +84,19 @@ const Index = () => {
     }
 
     try {
-      await registerUser(username);
-      toast.success('Registration transaction submitted!');
-      setUsername('');
-      setIsRegisterDialogOpen(false);
+      toast.info('Please confirm the transaction in your wallet...');
+      setPendingAction('register');
+      await register(username);
+      toast.success('Registration transaction submitted! Waiting for confirmation...');
+      // Don't close dialog yet - wait for isConfirmed
     } catch (error: any) {
-      toast.error(`Failed to register: ${error.message}`);
+      console.error('Registration error:', error);
+      setPendingAction(null);
+      if (error.message.includes('User rejected')) {
+        toast.error('Transaction rejected by user');
+      } else {
+        toast.error(`Failed to register: ${error.message}`);
+      }
     }
   };
 
@@ -104,8 +112,13 @@ const Index = () => {
       return;
     }
 
-    if (!channelName.trim() || !voteQuestion.trim()) {
-      toast.error('Please enter channel name and vote question');
+    if (!channelName.trim()) {
+      toast.error('Please enter channel name');
+      return;
+    }
+
+    if (!voteQuestion.trim()) {
+      toast.error('Please provide a vote question');
       return;
     }
 
@@ -116,35 +129,52 @@ const Index = () => {
     }
 
     try {
-      await createChannelWithVote(
-        channelName,
-        channelDescription,
-        voteQuestion,
-        validOptions,
-        false // Single choice for now
-      );
-      toast.success('Channel with voting created! Transaction submitted.');
-      setChannelName('');
-      setChannelDescription('');
-      setVoteQuestion('');
-      setVoteOptions(['', '']);
-      setIsDialogOpen(false);
+      toast.info('Please confirm the transaction in your wallet...');
+      setPendingAction('createChannel');
+      const durationSeconds = BigInt(Number(voteDuration) * 24 * 60 * 60);
+      await createChannelWithVote(channelName, channelDescription, voteQuestion, validOptions, durationSeconds);
+      toast.success('Channel & vote creation submitted! Waiting for confirmation...');
+      // Don't close dialog yet - wait for isConfirmed
     } catch (error: any) {
-      toast.error(`Failed to create channel: ${error.message}`);
+      console.error('Create channel error:', error);
+      setPendingAction(null);
+      if (error.message.includes('User rejected')) {
+        toast.error('Transaction rejected by user');
+      } else {
+        toast.error(`Failed to create channel: ${error.message}`);
+      }
     }
   };
 
+
   // Show success message when transaction confirms and refresh data
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && pendingAction) {
       toast.success('Transaction confirmed successfully!');
-      // Refresh user profile and stats after transaction confirmation
+
+      // Close the appropriate dialog based on pending action
+      if (pendingAction === 'register') {
+        setUsername('');
+        setIsRegisterDialogOpen(false);
+      } else if (pendingAction === 'createChannel') {
+        setChannelName('');
+        setChannelDescription('');
+        setVoteQuestion('');
+        setVoteOptions(['', '']);
+        setVoteDuration('7');
+        setIsDialogOpen(false);
+      }
+
+      // Clear pending action
+      setPendingAction(null);
+
+      // Refresh user profile and channel count after transaction confirmation
       setTimeout(() => {
-        refetchUserProfile();
-        refetchStats();
+        refetchUser();
+        refetchChannelCount();
       }, 1000);
     }
-  }, [isConfirmed, refetchUserProfile, refetchStats]);
+  }, [isConfirmed, pendingAction, refetchUser, refetchChannelCount]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,14 +189,12 @@ const Index = () => {
             <p className="text-xs text-muted-foreground leading-relaxed">
               Encrypted conversations powered by FHE technology
             </p>
-            {stats && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {Number(stats[1])} channels · {Number(stats[2])} messages · {Number(stats[0])} users
-              </p>
-            )}
-            {isConnected && userProfile && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {totalChannels} channels
+            </p>
+            {isConnected && userData && (
               <p className="text-xs text-primary mt-1">
-                {isUserRegistered ? `Logged in as: ${userProfile[0]}` : 'Not registered'}
+                {isUserRegistered ? `Logged in as: ${userUsername}` : 'Not registered'}
               </p>
             )}
           </div>
@@ -194,13 +222,13 @@ const Index = () => {
                 <DialogHeader>
                   <DialogTitle className="font-pixel">Create Board with FHE Voting</DialogTitle>
                   <DialogDescription className="text-xs">
-                    Create a discussion board with encrypted voting powered by FHE
+                    Create a discussion board with optional encrypted voting powered by FHE
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <label htmlFor="name" className="text-sm font-medium">
-                      Board Name
+                      Board Name *
                     </label>
                     <Input
                       id="name"
@@ -212,7 +240,7 @@ const Index = () => {
                   </div>
                   <div className="grid gap-2">
                     <label htmlFor="description" className="text-sm font-medium">
-                      Description (Optional)
+                      Description
                     </label>
                     <Textarea
                       id="description"
@@ -224,7 +252,7 @@ const Index = () => {
                   </div>
 
                   <div className="border-t pt-4">
-                    <p className="text-sm font-medium mb-2">🔒 Encrypted Voting</p>
+                    <p className="text-sm font-medium mb-2">🔒 Encrypted Voting (Optional)</p>
                     <div className="grid gap-2 mb-3">
                       <label htmlFor="voteQuestion" className="text-sm font-medium">
                         Vote Question
@@ -237,45 +265,63 @@ const Index = () => {
                         className="border-2"
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium">Vote Options</label>
-                      {voteOptions.map((option, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            placeholder={`Option ${index + 1}`}
-                            value={option}
-                            onChange={(e) => {
-                              const newOptions = [...voteOptions];
-                              newOptions[index] = e.target.value;
-                              setVoteOptions(newOptions);
-                            }}
-                            className="border-2"
-                          />
-                          {index > 1 && (
+                    {voteQuestion.trim() && (
+                      <>
+                        <div className="grid gap-2 mb-3">
+                          <label className="text-sm font-medium">Vote Options</label>
+                          {voteOptions.map((option, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                placeholder={`Option ${index + 1}`}
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...voteOptions];
+                                  newOptions[index] = e.target.value;
+                                  setVoteOptions(newOptions);
+                                }}
+                                className="border-2"
+                              />
+                              {index > 1 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newOptions = voteOptions.filter((_, i) => i !== index);
+                                    setVoteOptions(newOptions);
+                                  }}
+                                >
+                                  ✕
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {voteOptions.length < 10 && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                const newOptions = voteOptions.filter((_, i) => i !== index);
-                                setVoteOptions(newOptions);
-                              }}
+                              onClick={() => setVoteOptions([...voteOptions, ''])}
+                              className="text-xs"
                             >
-                              ✕
+                              + Add Option
                             </Button>
                           )}
                         </div>
-                      ))}
-                      {voteOptions.length < 10 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setVoteOptions([...voteOptions, ''])}
-                          className="text-xs"
-                        >
-                          + Add Option
-                        </Button>
-                      )}
-                    </div>
+                        <div className="grid gap-2 mb-2">
+                          <label htmlFor="duration" className="text-sm font-medium">
+                            Vote Duration (days)
+                          </label>
+                          <Input
+                            id="duration"
+                            type="number"
+                            min="1"
+                            max="90"
+                            value={voteDuration}
+                            onChange={(e) => setVoteDuration(e.target.value)}
+                            className="border-2"
+                          />
+                        </div>
+                      </>
+                    )}
                     <p className="text-xs text-muted-foreground mt-2">
                       Votes will be encrypted using FHE. Nobody can see individual votes!
                     </p>
@@ -285,10 +331,10 @@ const Index = () => {
                   <Button
                     type="submit"
                     onClick={handleCreateChannel}
-                    disabled={isPending || !channelName.trim() || !voteQuestion.trim()}
+                    disabled={isPending || pendingAction === 'createChannel' || !channelName.trim()}
                     className="font-pixel text-xs"
                   >
-                    {isPending ? 'Creating...' : 'Create Board'}
+                    {isPending && pendingAction === 'createChannel' ? 'Confirming...' : 'Create Board'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -302,7 +348,7 @@ const Index = () => {
             <DialogHeader>
               <DialogTitle className="font-pixel">Register Your Account</DialogTitle>
               <DialogDescription className="text-xs">
-                Register to create channels and post messages on FHE Social
+                Register to create channels and post messages on VoxCircle
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -320,7 +366,7 @@ const Index = () => {
               </div>
               <div className="bg-muted p-3 rounded-md">
                 <p className="text-xs text-muted-foreground">
-                  Your identity will be encrypted using FHE technology. Only you can prove ownership of your messages.
+                  Registration is required to participate in discussions. Your username will be publicly visible.
                 </p>
               </div>
             </div>
@@ -335,10 +381,10 @@ const Index = () => {
               <Button
                 type="submit"
                 onClick={handleRegister}
-                disabled={isPending || !username.trim()}
+                disabled={isPending || pendingAction === 'register' || !username.trim()}
                 className="font-pixel text-xs"
               >
-                {isPending ? 'Registering...' : 'Register'}
+                {isPending && pendingAction === 'register' ? 'Confirming...' : 'Register'}
               </Button>
             </DialogFooter>
           </DialogContent>

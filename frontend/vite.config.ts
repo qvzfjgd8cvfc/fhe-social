@@ -19,4 +19,16 @@ export default defineConfig(() => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Fix for @zama-fhe/relayer-sdk
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      // Node.js global to browser globalThis
+      define: {
+        global: 'globalThis'
+      },
+    }
+  },
 }));

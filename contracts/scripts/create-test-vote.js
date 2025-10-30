@@ -1,67 +1,41 @@
 const hre = require("hardhat");
 
 async function main() {
-  const [deployer] = await hre.ethers.getSigners();
+  const contractAddress = "0x62005A2c963e348e0E1b5b3c81aC78aB38b1AA7B";
+  const channelId = 0;
 
-  const votingManager = await hre.ethers.getContractAt(
-    "VotingManager",
-    "0x51f6F4F60ba643aEbBDcdd19c0f92614A1242A28"
-  );
+  console.log("=== Creating Test Vote ===\n");
+  console.log("Contract:", contractAddress);
+  console.log("Channel ID:", channelId);
 
-  const fheSocial = await hre.ethers.getContractAt(
-    "FHESocialVoting",
-    "0x87b2eEE655D41b07d4dF8124F0B601636F45808e"
-  );
+  const [signer] = await hre.ethers.getSigners();
+  console.log("Signer:", signer.address);
 
-  console.log("Deployer:", deployer.address);
-  console.log();
+  const FHESocial = await hre.ethers.getContractAt("FHESocial", contractAddress);
 
-  // Check if channel 1 exists
-  try {
-    const channelData = await fheSocial.getChannel(1);
-    console.log("Channel 1 exists:");
-    console.log("- Name:", channelData[0]);
-    console.log("- Description:", channelData[1]);
-    console.log();
-  } catch (error) {
-    console.log("Channel 1 does not exist");
-    console.log();
-  }
+  const question = "What do you think about this feature?";
+  const options = ["Love it", "It's okay", "Needs improvement"];
+  const duration = 7 * 24 * 60 * 60; // 7 days in seconds
 
-  // Check current vote status
-  console.log("Checking vote status for channel 1...");
-  const voteInfo = await votingManager.getVoteInfo(1);
-  console.log("Current vote:");
-  console.log("- Question:", voteInfo[0]);
-  console.log("- Options:", voteInfo[1]);
-  console.log("- Active:", voteInfo[4]);
-  console.log();
+  console.log("\nCreating vote...");
+  console.log("Question:", question);
+  console.log("Options:", options);
+  console.log("Duration:", duration, "seconds (7 days)");
 
-  // If vote doesn't exist, try to create one manually
-  if (!voteInfo[4]) {
-    console.log("Vote doesn't exist. Creating test vote...");
-    try {
-      const tx = await votingManager.createVote(
-        1,
-        "Do you like FHE encryption?",
-        ["Yes", "No", "Maybe"],
-        false,
-        { gasLimit: 500000 }
-      );
-      console.log("Transaction sent:", tx.hash);
-      await tx.wait();
-      console.log("Vote created successfully!");
+  const tx = await FHESocial.createVote(channelId, question, options, duration);
+  console.log("\nTransaction hash:", tx.hash);
 
-      // Check again
-      const newVoteInfo = await votingManager.getVoteInfo(1);
-      console.log("\nNew vote info:");
-      console.log("- Question:", newVoteInfo[0]);
-      console.log("- Options:", newVoteInfo[1]);
-      console.log("- Active:", newVoteInfo[4]);
-    } catch (error) {
-      console.error("Failed to create vote:", error.message);
-    }
-  }
+  console.log("Waiting for confirmation...");
+  const receipt = await tx.wait();
+  console.log("Vote created successfully!");
+  console.log("Block number:", receipt.blockNumber);
+
+  // Verify the vote was created
+  const voteInfo = await FHESocial.getVoteInfo(channelId);
+  console.log("\n=== Verification ===");
+  console.log("Question:", voteInfo[0]);
+  console.log("Options:", voteInfo[1]);
+  console.log("Active:", voteInfo[4]);
 }
 
 main()

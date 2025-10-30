@@ -16,29 +16,72 @@ interface VotingPanelProps {
 
 export function VotingPanel({ channelId }: VotingPanelProps) {
   const { address } = useAccount();
-  const { vote, isPending, isConfirmed } = useFHESocial();
+  const { vote, isPending, isConfirmed, hash, error: writeError } = useFHESocial();
   const { data: voteInfo } = useVoteInfo(channelId);
   const { data: hasVoted, refetch: refetchHasVoted } = useHasVoted(channelId, address);
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isEncrypting, setIsEncrypting] = useState(false);
+  const [isVoting, setIsVoting] = useState(false); // Track overall voting process
+  const [lastError, setLastError] = useState<Error | null>(null);
 
   // Refresh vote status when transaction confirms
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && hash) {
       refetchHasVoted();
-      toast.success('Vote cast successfully! 🎉');
-    }
-  }, [isConfirmed, refetchHasVoted]);
+      setIsVoting(false); // Reset voting state on confirmation
 
-  if (!voteInfo || !voteInfo[3]) {
+      toast.success('Vote cast successfully! 🎉', {
+        description: (
+          <div className="flex flex-col gap-1">
+            <span>Your encrypted vote has been recorded on-chain</span>
+            <a
+              href={`https://sepolia.etherscan.io/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-600 underline"
+            >
+              View transaction →
+            </a>
+          </div>
+        ),
+      });
+    }
+  }, [isConfirmed, hash, refetchHasVoted]);
+
+  // Handle write errors
+  useEffect(() => {
+    if (writeError && writeError !== lastError) {
+      setLastError(writeError);
+      setIsVoting(false); // Reset voting state on error
+      console.error('Vote transaction error:', writeError);
+
+      let errorMessage = 'Transaction failed';
+      if (writeError.message.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected';
+      } else if (writeError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas';
+      } else if (writeError.message.includes('Already voted')) {
+        errorMessage = 'You have already voted';
+      }
+
+      toast.error(errorMessage, {
+        description: writeError.message.slice(0, 100),
+      });
+    }
+  }, [writeError, lastError]);
+
+  // voteInfo returns: [question, options[], startTime, endTime, active]
+  if (!voteInfo || !voteInfo[4]) {
     // No active vote
     return null;
   }
 
   const question = voteInfo[0];
   const options = voteInfo[1];
-  const isActive = voteInfo[3];
+  const startTime = Number(voteInfo[2]);
+  const endTime = Number(voteInfo[3]);
+  const isActive = voteInfo[4];
 
   const handleVote = async () => {
     if (selectedOption === null) {
@@ -53,6 +96,9 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
 
     try {
       setIsEncrypting(true);
+      setIsVoting(true); // Set voting state at the start
+      setLastError(null);
+
       toast.info('Initializing FHE encryption...');
 
       // Initialize FHE
@@ -61,10 +107,10 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
       toast.info('Encrypting your vote... 🔒');
 
       // Encrypt the vote option
-      // IMPORTANT: Must encrypt with VotingManager address since it calls FHE.fromExternal()
+      // IMPORTANT: Must encrypt with FHESocial contract address since it calls FHE.fromExternal()
       const { handle, proof } = await encryptUint8(
         selectedOption,
-        CONTRACTS.VotingManager,
+        CONTRACTS.FHESocial,
         address
       );
 
@@ -76,7 +122,18 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (error: any) {
       console.error('Voting error:', error);
-      toast.error(`Failed to vote: ${error.message}`);
+      setIsVoting(false); // Reset on error
+
+      let errorMessage = 'Failed to vote';
+      if (error.message.includes('rejected')) {
+        errorMessage = 'You rejected the transaction';
+      } else if (error.message.includes('Encryption')) {
+        errorMessage = 'Failed to encrypt vote';
+      }
+
+      toast.error(errorMessage, {
+        description: error.message.slice(0, 100),
+      });
     } finally {
       setIsEncrypting(false);
     }
@@ -139,13 +196,15 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
 
       <Button
         onClick={handleVote}
-        disabled={selectedOption === null || isPending || isEncrypting}
+        disabled={selectedOption === null || isVoting}
         className="w-full"
       >
         {isEncrypting
           ? '🔒 Encrypting vote...'
           : isPending
-          ? '⏳ Submitting...'
+          ? '⏳ Waiting for confirmation...'
+          : isVoting
+          ? '⏳ Processing...'
           : '🗳️ Cast Encrypted Vote'}
       </Button>
 

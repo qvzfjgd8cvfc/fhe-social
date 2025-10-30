@@ -15,13 +15,13 @@ export default function ChannelDetail() {
     return <div>Invalid channel ID</div>;
   }
 
+  // New contract returns: [name, description, creator, createdAt, active]
   const channel = channelData ? {
     name: channelData[0],
     description: channelData[1],
     creator: channelData[2],
     createdAt: Number(channelData[3]),
-    messageCount: Number(channelData[4]),
-    exists: channelData[5],
+    active: channelData[4],
   } : null;
 
   return (
@@ -47,7 +47,7 @@ export default function ChannelDetail() {
               )}
               <div className="text-sm text-muted-foreground">
                 <p>Created: {new Date(channel.createdAt * 1000).toLocaleDateString()}</p>
-                <p>Messages: {channel.messageCount}</p>
+                <p>Creator: {channel.creator.slice(0, 6)}...{channel.creator.slice(-4)}</p>
               </div>
             </div>
 

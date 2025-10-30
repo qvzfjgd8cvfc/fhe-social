@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" shape-rendering="crispEdges">
+  <!-- Pixel-style chat bubble for FHE Social -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111318"/>
+      <stop offset="100%" stop-color="#0A0C10"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="128" height="128" rx="16" ry="16" fill="url(#bg)"/>
+
+  <!-- Outer 8-bit border -->
+  <rect x="10" y="10" width="108" height="84" fill="#1F2330"/>
+  <rect x="14" y="14" width="100" height="76" fill="#2A3040"/>
+
+  <!-- Bubble tail (pixelated) -->
+  <rect x="34" y="88" width="16" height="10" fill="#1F2330"/>
+  <rect x="40" y="98" width="10" height="10" fill="#1F2330"/>
+
+  <!-- Inner bubble area -->
+  <rect x="20" y="20" width="88" height="60" fill="#0ECF8F"/>
+  <rect x="24" y="24" width="80" height="52" fill="#0BAA74"/>
+
+  <!-- Pixel highlights -->
+  <rect x="24" y="24" width="20" height="8" fill="#39D98A"/>
+  <rect x="84" y="24" width="20" height="8" fill="#39D98A"/>
+  <rect x="24" y="40" width="12" height="6" fill="#39D98A"/>
+
+  <!-- 8-bit text dots to imply messages -->
+  <rect x="40" y="44" width="8" height="8" fill="#092B1E"/>
+  <rect x="60" y="44" width="8" height="8" fill="#092B1E"/>
+  <rect x="80" y="44" width="8" height="8" fill="#092B1E"/>
+
+  <!-- Outer stroke to boost contrast on light UIs -->
+  <rect x="8" y="8" width="112" height="88" fill="none" stroke="#0ECF8F" stroke-width="2"/>
+</svg>
+
+
+
+
