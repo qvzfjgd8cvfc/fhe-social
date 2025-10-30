@@ -10,6 +10,7 @@ import { config } from './config/wagmi';
 import Index from "./pages/Index";
 import Discussion from "./pages/Discussion";
 import ChannelDetail from "./pages/ChannelDetail";
+import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/channel/:channelId" element={<ChannelDetail />} />
               <Route path="/discussion/:id" element={<Discussion />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

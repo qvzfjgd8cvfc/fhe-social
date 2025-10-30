@@ -1,6 +1,7 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-// brand logo uses public/favicon.svg (pixel chat bubble)
 import { Link } from 'react-router-dom';
+import { Github, HelpCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Header = () => {
   return (
@@ -11,8 +12,36 @@ const Header = () => {
             <img src="/favicon.svg" alt="VoxCircle" className="w-8 h-8" />
             <h1 className="text-xl text-foreground">VoxCircle</h1>
           </Link>
-          
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-sm"
+            >
+              <Link to="/how-it-works">
+                <HelpCircle className="w-4 h-4 mr-1.5" />
+                How It Works
+              </Link>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="p-2"
+            >
+              <a
+                href="https://github.com/qvzfjgd8cvfc/fhe-social"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub Repository"
+              >
+                <Github className="w-5 h-5" />
+              </a>
+            </Button>
+
             <ConnectButton />
           </div>
         </div>
