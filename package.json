@@ -1,0 +1,41 @@
+{
+  "name": "voxcircle",
+  "version": "1.0.0",
+  "description": "VoxCircle - FHE-powered privacy-preserving social platform with encrypted voting",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "seed": "hardhat run scripts/create-channels.js --network sepolia",
+    "test": "hardhat test",
+    "test:all": "hardhat test test/FHESocial.test.js",
+    "test:user": "hardhat test test/UserRegistration.test.js",
+    "test:channel": "hardhat test test/ChannelManagement.test.js",
+    "test:voting": "hardhat test test/EncryptedVoting.test.js",
+    "test:coverage": "hardhat coverage",
+    "clean": "hardhat clean"
+  },
+  "keywords": [
+    "fhe",
+    "social",
+    "voting",
+    "privacy",
+    "ethereum",
+    "smart-contracts",
+    "zama"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@fhevm/hardhat-plugin": "0.3.0-1",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.26.3"
+  },
+  "dependencies": {
+    "@fhevm/solidity": "^0.9.1",
+    "@openzeppelin/contracts": "^5.0.0",
+    "@zama-fhe/relayer-sdk": "0.3.0-5",
+    "ethers": "^6.13.4"
+  }
+}
