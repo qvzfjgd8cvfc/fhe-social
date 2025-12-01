@@ -1,0 +1,12 @@
+node_modules/
+.env
+.DS_Store
+cache/
+artifacts/
+deployment*.json
+frontend/dist/
+frontend/.vercel/
+frontend/node_modules/
+*.log
+.vercel
+fhevmTemp/
