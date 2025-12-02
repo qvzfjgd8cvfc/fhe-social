@@ -13,19 +13,69 @@ interface MessageListProps {
 
 export function MessageList({ channelId }: MessageListProps) {
   const { address } = useAccount();
-  const { postMessage, isPending, isConfirmed } = useFHESocial();
+  const { postMessage, isPending, isConfirmed, hash, error: writeError } = useFHESocial();
   const { data: messagesData, refetch: refetchMessages } = useMessages(channelId, 0n, 50n);
 
   const [messageContent, setMessageContent] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+  const [lastError, setLastError] = useState<Error | null>(null);
 
   // Refetch messages when transaction confirms
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && hash && isPosting) {
       refetchMessages();
-      toast.success('Message posted successfully!');
+      setIsPosting(false);
       setMessageContent('');
+      toast.success('Message posted!', {
+        description: (
+          <div className="flex flex-col gap-1">
+            <span>Your message has been posted on-chain</span>
+            <a
+              href={`https://sepolia.etherscan.io/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-600 underline"
+            >
+              View transaction →
+            </a>
+          </div>
+        ),
+      });
     }
-  }, [isConfirmed, refetchMessages]);
+  }, [isConfirmed, hash, isPosting, refetchMessages]);
+
+  // Handle write errors
+  useEffect(() => {
+    if (writeError && writeError !== lastError && isPosting) {
+      setLastError(writeError);
+      setIsPosting(false);
+
+      let errorMessage = 'Failed to post message';
+      if (writeError.message.includes('user rejected') || writeError.message.includes('User rejected')) {
+        errorMessage = 'Transaction was rejected';
+      } else if (writeError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas';
+      }
+
+      toast.error(errorMessage, {
+        description: (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs">{writeError.message.slice(0, 100)}</span>
+            {hash && (
+              <a
+                href={`https://sepolia.etherscan.io/tx/${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 hover:text-blue-600 underline"
+              >
+                View transaction →
+              </a>
+            )}
+          </div>
+        ),
+      });
+    }
+  }, [writeError, lastError, hash, isPosting]);
 
   const handlePostMessage = async () => {
     if (!address) {
@@ -39,12 +89,17 @@ export function MessageList({ channelId }: MessageListProps) {
     }
 
     try {
+      setIsPosting(true);
+      setLastError(null);
       // Post as non-anonymous (false)
       await postMessage(channelId, messageContent, false);
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (error: any) {
       console.error('Post message error:', error);
-      toast.error(`Failed to post message: ${error.message}`);
+      setIsPosting(false);
+      toast.error('Failed to post message', {
+        description: error.message.slice(0, 100),
+      });
     }
   };
 
@@ -72,10 +127,10 @@ export function MessageList({ channelId }: MessageListProps) {
 
         <Button
           onClick={handlePostMessage}
-          disabled={isPending || !messageContent.trim()}
+          disabled={isPending || isPosting || !messageContent.trim()}
           className="w-full"
         >
-          {isPending ? (
+          {isPending || isPosting ? (
             <>⏳ Posting...</>
           ) : (
             <>

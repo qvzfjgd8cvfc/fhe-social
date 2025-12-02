@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const { address, isConnected } = useAccount();
-  const { register, createChannelWithVote, isPending, isConfirmed } = useFHESocial();
+  const { register, createChannelWithVote, isPending, isConfirmed, hash, error: writeError } = useFHESocial();
   const { data: userData, refetch: refetchUser } = useUser(address);
   const { data: channelCount, refetch: refetchChannelCount } = useChannelCount();
 
@@ -34,6 +34,7 @@ const Index = () => {
   const [username, setUsername] = useState('');
   const [channels, setChannels] = useState<any[]>([]);
   const [pendingAction, setPendingAction] = useState<'register' | 'createChannel' | null>(null);
+  const [lastError, setLastError] = useState<Error | null>(null);
 
   // Check if user is registered
   const isUserRegistered = userData ? userData[1] : false; // userData = [username, registered, registeredAt]
@@ -149,8 +150,23 @@ const Index = () => {
 
   // Show success message when transaction confirms and refresh data
   useEffect(() => {
-    if (isConfirmed && pendingAction) {
-      toast.success('Transaction confirmed successfully!');
+    if (isConfirmed && pendingAction && hash) {
+      const actionLabel = pendingAction === 'register' ? 'Registration' : 'Channel creation';
+      toast.success(`${actionLabel} confirmed!`, {
+        description: (
+          <div className="flex flex-col gap-1">
+            <span>Transaction has been confirmed on-chain</span>
+            <a
+              href={`https://sepolia.etherscan.io/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-600 underline"
+            >
+              View transaction →
+            </a>
+          </div>
+        ),
+      });
 
       // Close the appropriate dialog based on pending action
       if (pendingAction === 'register') {
@@ -174,7 +190,42 @@ const Index = () => {
         refetchChannelCount();
       }, 1000);
     }
-  }, [isConfirmed, pendingAction, refetchUser, refetchChannelCount]);
+  }, [isConfirmed, pendingAction, hash, refetchUser, refetchChannelCount]);
+
+  // Handle write errors
+  useEffect(() => {
+    if (writeError && writeError !== lastError) {
+      setLastError(writeError);
+      setPendingAction(null);
+
+      let errorMessage = 'Transaction failed';
+      if (writeError.message.includes('user rejected') || writeError.message.includes('User rejected')) {
+        errorMessage = 'Transaction was rejected';
+      } else if (writeError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas';
+      } else if (writeError.message.includes('Already registered')) {
+        errorMessage = 'You are already registered';
+      }
+
+      toast.error(errorMessage, {
+        description: (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs">{writeError.message.slice(0, 100)}</span>
+            {hash && (
+              <a
+                href={`https://sepolia.etherscan.io/tx/${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 hover:text-blue-600 underline"
+              >
+                View transaction →
+              </a>
+            )}
+          </div>
+        ),
+      });
+    }
+  }, [writeError, lastError, hash]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -194,7 +194,7 @@ export function useHasVoted(channelId?: bigint, address?: `0x${string}`) {
   return useReadContract({
     address: CONTRACTS.FHESocial,
     abi: ABIS.FHESocial,
-    functionName: 'hasVoted',
+    functionName: 'hasUserVoted',
     args: channelId !== undefined && address ? [channelId, address] : undefined,
     query: {
       enabled: channelId !== undefined && !!address,

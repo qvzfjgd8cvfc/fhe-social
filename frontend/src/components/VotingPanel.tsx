@@ -66,10 +66,24 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
       }
 
       toast.error(errorMessage, {
-        description: writeError.message.slice(0, 100),
+        description: (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs">{writeError.message.slice(0, 100)}</span>
+            {hash && (
+              <a
+                href={`https://sepolia.etherscan.io/tx/${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 hover:text-blue-600 underline"
+              >
+                View transaction →
+              </a>
+            )}
+          </div>
+        ),
       });
     }
-  }, [writeError, lastError]);
+  }, [writeError, lastError, hash]);
 
   // voteInfo returns: [question, options[], startTime, endTime, active]
   if (!voteInfo || !voteInfo[4]) {
@@ -125,14 +139,23 @@ export function VotingPanel({ channelId }: VotingPanelProps) {
       setIsVoting(false); // Reset on error
 
       let errorMessage = 'Failed to vote';
-      if (error.message.includes('rejected')) {
+      let errorDescription = error.message?.slice(0, 150) || 'Unknown error';
+
+      if (error.message?.includes('rejected')) {
         errorMessage = 'You rejected the transaction';
-      } else if (error.message.includes('Encryption')) {
+      } else if (error.message?.includes('Encryption') || error.message?.includes('encrypt')) {
         errorMessage = 'Failed to encrypt vote';
+      } else if (error.message?.includes('getKmsSigners') || error.message?.includes('KMS')) {
+        errorMessage = 'FHE service temporarily unavailable';
+        errorDescription = 'The encryption service is experiencing issues. Please try again in a few moments.';
+      } else if (error.message?.includes('initialization failed')) {
+        errorMessage = 'FHE initialization failed';
+        errorDescription = 'Unable to connect to the encryption service. Please refresh and try again.';
       }
 
       toast.error(errorMessage, {
-        description: error.message.slice(0, 100),
+        description: errorDescription,
+        duration: 6000,
       });
     } finally {
       setIsEncrypting(false);

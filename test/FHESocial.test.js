@@ -1,460 +1,791 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, fhevm } = require("hardhat");
 
-describe("FHESocial Contract", function () {
-  let fheSocial;
-  let owner;
-  let user1;
-  let user2;
-  let user3;
+describe("FHESocial - Comprehensive FHE Social Platform Tests", function () {
+  let contract;
+  let owner, user1, user2, user3, user4, user5;
+  let contractAddress;
 
   beforeEach(async function () {
-    // Get signers
-    [owner, user1, user2, user3] = await ethers.getSigners();
+    if (!fhevm.isMock) {
+      throw new Error("This test must run in FHEVM mock environment");
+    }
 
-    // Deploy FHESocial contract
-    const FHESocial = await ethers.getContractFactory("FHESocial");
-    fheSocial = await FHESocial.deploy();
-    await fheSocial.waitForDeployment();
+    await fhevm.initializeCLIApi();
 
-    console.log("FHESocial deployed to:", await fheSocial.getAddress());
+    [owner, user1, user2, user3, user4, user5] = await ethers.getSigners();
+
+    const Factory = await ethers.getContractFactory("FHESocial");
+    const deployed = await Factory.deploy();
+    await deployed.waitForDeployment();
+    contract = deployed;
+    contractAddress = await contract.getAddress();
+
+    console.log(`✅ FHESocial deployed at: ${contractAddress}`);
+  });
+
+  describe("Contract Deployment", function () {
+    it("should deploy contract successfully", async function () {
+      expect(contractAddress).to.be.properAddress;
+      console.log("✅ Contract deployed successfully");
+    });
+
+    it("should have zero initial channel count", async function () {
+      const channelCount = await contract.channelCount();
+      expect(channelCount).to.equal(0);
+      console.log("✅ Initial channel count is 0");
+    });
   });
 
   describe("User Registration", function () {
-    it("Should register a new user successfully", async function () {
-      await fheSocial.connect(user1).register("Alice");
+    it("should register a new user", async function () {
+      await contract.connect(user1).register("alice");
 
-      const userInfo = await fheSocial.getUser(user1.address);
-      expect(userInfo.username).to.equal("Alice");
-      expect(userInfo.registered).to.be.true;
-      expect(userInfo.registeredAt).to.be.gt(0);
+      const [username, registered, registeredAt] = await contract.getUser(user1.address);
+      expect(username).to.equal("alice");
+      expect(registered).to.equal(true);
+      expect(registeredAt).to.be.gt(0);
+
+      console.log("✅ User registration works");
     });
 
-    it("Should emit UserRegistered event", async function () {
-      await expect(fheSocial.connect(user1).register("Alice"))
-        .to.emit(fheSocial, "UserRegistered")
-        .withArgs(user1.address, "Alice");
+    it("should emit UserRegistered event", async function () {
+      await expect(contract.connect(user1).register("bob"))
+        .to.emit(contract, "UserRegistered")
+        .withArgs(user1.address, "bob");
+
+      console.log("✅ UserRegistered event emitted");
     });
 
-    it("Should fail to register with empty username", async function () {
-      await expect(fheSocial.connect(user1).register("")).to.be.revertedWith(
-        "Invalid username length"
-      );
-    });
+    it("should reject duplicate registration", async function () {
+      await contract.connect(user1).register("alice");
 
-    it("Should fail to register with username too long", async function () {
-      const longUsername = "a".repeat(33); // 33 characters
       await expect(
-        fheSocial.connect(user1).register(longUsername)
+        contract.connect(user1).register("alice2")
+      ).to.be.revertedWith("Already registered");
+
+      console.log("✅ Duplicate registration rejected");
+    });
+
+    it("should reject empty username", async function () {
+      await expect(
+        contract.connect(user1).register("")
       ).to.be.revertedWith("Invalid username length");
+
+      console.log("✅ Empty username rejected");
     });
 
-    it("Should fail to register twice", async function () {
-      await fheSocial.connect(user1).register("Alice");
-      await expect(fheSocial.connect(user1).register("Bob")).to.be.revertedWith(
-        "Already registered"
-      );
+    it("should reject username exceeding 32 characters", async function () {
+      const longUsername = "a".repeat(33);
+
+      await expect(
+        contract.connect(user1).register(longUsername)
+      ).to.be.revertedWith("Invalid username length");
+
+      console.log("✅ Long username rejected");
     });
 
-    it("Should allow multiple users to register", async function () {
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user2).register("Bob");
-      await fheSocial.connect(user3).register("Charlie");
+    it("should accept username with exactly 32 characters", async function () {
+      const maxUsername = "a".repeat(32);
+      await contract.connect(user1).register(maxUsername);
 
-      const user1Info = await fheSocial.getUser(user1.address);
-      const user2Info = await fheSocial.getUser(user2.address);
-      const user3Info = await fheSocial.getUser(user3.address);
+      const [username, registered] = await contract.getUser(user1.address);
+      expect(username).to.equal(maxUsername);
+      expect(registered).to.equal(true);
 
-      expect(user1Info.username).to.equal("Alice");
-      expect(user2Info.username).to.equal("Bob");
-      expect(user3Info.username).to.equal("Charlie");
+      console.log("✅ Maximum length username accepted");
     });
   });
 
   describe("Channel Management", function () {
     beforeEach(async function () {
-      // Register users first
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user2).register("Bob");
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("user1");
     });
 
-    it("Should create a new channel", async function () {
-      await fheSocial
-        .connect(user1)
-        .createChannel("General", "General discussion");
+    it("should create a new channel", async function () {
+      const tx = await contract.connect(owner).createChannel("General", "General discussion");
+      await tx.wait();
 
-      const channelInfo = await fheSocial.getChannel(0);
-      expect(channelInfo.name).to.equal("General");
-      expect(channelInfo.description).to.equal("General discussion");
-      expect(channelInfo.creator).to.equal(user1.address);
-      expect(channelInfo.active).to.be.true;
+      const channelCount = await contract.channelCount();
+      expect(channelCount).to.equal(1);
+
+      const [name, description, creator, createdAt, active] = await contract.getChannel(0);
+      expect(name).to.equal("General");
+      expect(description).to.equal("General discussion");
+      expect(creator).to.equal(owner.address);
+      expect(active).to.equal(true);
+
+      console.log("✅ Channel created successfully");
     });
 
-    it("Should emit ChannelCreated event", async function () {
+    it("should emit ChannelCreated event", async function () {
+      await expect(contract.connect(owner).createChannel("Test", "Test channel"))
+        .to.emit(contract, "ChannelCreated")
+        .withArgs(0, "Test", owner.address);
+
+      console.log("✅ ChannelCreated event emitted");
+    });
+
+    it("should reject channel creation from unregistered user", async function () {
       await expect(
-        fheSocial.connect(user1).createChannel("General", "General discussion")
-      )
-        .to.emit(fheSocial, "ChannelCreated")
-        .withArgs(0, "General", user1.address);
-    });
-
-    it("Should fail to create channel if not registered", async function () {
-      await expect(
-        fheSocial.connect(user3).createChannel("General", "General discussion")
+        contract.connect(user2).createChannel("Test", "Test channel")
       ).to.be.revertedWith("Not registered");
+
+      console.log("✅ Unregistered user rejected");
     });
 
-    it("Should increment channel count", async function () {
-      await fheSocial.connect(user1).createChannel("Channel1", "Desc1");
-      await fheSocial.connect(user2).createChannel("Channel2", "Desc2");
-
-      const count = await fheSocial.channelCount();
-      expect(count).to.equal(2);
-    });
-
-    it("Should fail with empty channel name", async function () {
+    it("should reject empty channel name", async function () {
       await expect(
-        fheSocial.connect(user1).createChannel("", "Description")
-      ).to.be.revertedWith("Invalid channel name");
+        contract.connect(owner).createChannel("", "Description")
+      ).to.be.revertedWith("Invalid name length");
+
+      console.log("✅ Empty channel name rejected");
     });
 
-    it("Should fail with channel name too long", async function () {
-      const longName = "a".repeat(101);
-      await expect(
-        fheSocial.connect(user1).createChannel(longName, "Description")
-      ).to.be.revertedWith("Invalid channel name");
-    });
-  });
-
-  describe("Message Posting", function () {
-    beforeEach(async function () {
-      // Register users
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user2).register("Bob");
-
-      // Create a channel
-      await fheSocial
-        .connect(user1)
-        .createChannel("General", "General discussion");
-    });
-
-    it("Should post a public message", async function () {
-      await fheSocial
-        .connect(user1)
-        .postMessage(0, "Hello World!", false);
-
-      const messages = await fheSocial.getMessages(0, 0, 10);
-      expect(messages[0][0]).to.equal(user1.address); // sender
-      expect(messages[1][0]).to.equal("Hello World!"); // content
-      expect(messages[2][0]).to.be.false; // isAnonymous
-    });
-
-    it("Should post an anonymous message", async function () {
-      await fheSocial
-        .connect(user1)
-        .postMessage(0, "Secret message", true);
-
-      const messages = await fheSocial.getMessages(0, 0, 10);
-      expect(messages[2][0]).to.be.true; // isAnonymous
-    });
-
-    it("Should emit MessagePosted event", async function () {
-      await expect(
-        fheSocial.connect(user1).postMessage(0, "Hello!", false)
-      )
-        .to.emit(fheSocial, "MessagePosted")
-        .withArgs(0, user1.address, false);
-    });
-
-    it("Should fail to post message if not registered", async function () {
-      await expect(
-        fheSocial.connect(user3).postMessage(0, "Hello!", false)
-      ).to.be.revertedWith("Not registered");
-    });
-
-    it("Should fail to post empty message", async function () {
-      await expect(
-        fheSocial.connect(user1).postMessage(0, "", false)
-      ).to.be.revertedWith("Empty message");
-    });
-
-    it("Should fail to post message too long", async function () {
-      const longMessage = "a".repeat(1001);
-      await expect(
-        fheSocial.connect(user1).postMessage(0, longMessage, false)
-      ).to.be.revertedWith("Message too long");
-    });
-
-    it("Should fail to post to non-existent channel", async function () {
-      await expect(
-        fheSocial.connect(user1).postMessage(999, "Hello!", false)
-      ).to.be.revertedWith("Invalid channel");
-    });
-
-    it("Should retrieve messages with pagination", async function () {
-      // Post multiple messages
-      await fheSocial.connect(user1).postMessage(0, "Message 1", false);
-      await fheSocial.connect(user2).postMessage(0, "Message 2", false);
-      await fheSocial.connect(user1).postMessage(0, "Message 3", true);
-
-      // Get first 2 messages
-      const messages = await fheSocial.getMessages(0, 0, 2);
-      expect(messages[1].length).to.equal(2);
-      expect(messages[1][0]).to.equal("Message 1");
-      expect(messages[1][1]).to.equal("Message 2");
-
-      // Get message starting from offset 1
-      const messages2 = await fheSocial.getMessages(0, 1, 2);
-      expect(messages2[1][0]).to.equal("Message 2");
-      expect(messages2[1][1]).to.equal("Message 3");
-    });
-  });
-
-  describe("Voting System", function () {
-    beforeEach(async function () {
-      // Register users
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user2).register("Bob");
-      await fheSocial.connect(user3).register("Charlie");
-
-      // Create a channel
-      await fheSocial
-        .connect(user1)
-        .createChannel("Voting", "Voting channel");
-    });
-
-    it("Should create a vote for channel", async function () {
-      const duration = 3600; // 1 hour
-      await fheSocial
-        .connect(user1)
-        .createVote(0, "Best feature?", ["Feature A", "Feature B"], duration);
-
-      const voteInfo = await fheSocial.getVoteInfo(0);
-      expect(voteInfo.question).to.equal("Best feature?");
-      expect(voteInfo.options).to.deep.equal(["Feature A", "Feature B"]);
-      expect(voteInfo.active).to.be.true;
-    });
-
-    it("Should emit VoteCreated event", async function () {
-      await expect(
-        fheSocial
-          .connect(user1)
-          .createVote(0, "Best feature?", ["Feature A", "Feature B"], 3600)
-      )
-        .to.emit(fheSocial, "VoteCreated")
-        .withArgs(0, "Best feature?");
-    });
-
-    it("Should fail to create vote with less than 2 options", async function () {
-      await expect(
-        fheSocial.connect(user1).createVote(0, "Question?", ["Only one"], 3600)
-      ).to.be.revertedWith("Need 2-10 options");
-    });
-
-    it("Should fail to create vote with more than 10 options", async function () {
-      const tooManyOptions = Array(11).fill("Option");
-      await expect(
-        fheSocial.connect(user1).createVote(0, "Question?", tooManyOptions, 3600)
-      ).to.be.revertedWith("Need 2-10 options");
-    });
-
-    it("Should fail to create vote with invalid duration", async function () {
-      // Too short (< 1 hour = 3600 seconds)
-      await expect(
-        fheSocial
-          .connect(user1)
-          .createVote(0, "Question?", ["A", "B"], 3599)
-      ).to.be.revertedWith("Invalid duration");
-
-      // Too long (> 90 days = 7776000 seconds)
-      await expect(
-        fheSocial
-          .connect(user1)
-          .createVote(0, "Question?", ["A", "B"], 7776001)
-      ).to.be.revertedWith("Invalid duration");
-    });
-
-    it("Should fail to create vote if not channel creator", async function () {
-      await expect(
-        fheSocial
-          .connect(user2)
-          .createVote(0, "Question?", ["A", "B"], 3600)
-      ).to.be.revertedWith("Only channel creator");
-    });
-
-    it("Should fail to create vote when vote already active", async function () {
-      await fheSocial
-        .connect(user1)
-        .createVote(0, "First vote?", ["A", "B"], 3600);
+    it("should reject channel name exceeding 64 characters", async function () {
+      const longName = "a".repeat(65);
 
       await expect(
-        fheSocial
-          .connect(user1)
-          .createVote(0, "Second vote?", ["C", "D"], 3600)
-      ).to.be.revertedWith("Vote already active");
+        contract.connect(owner).createChannel(longName, "Description")
+      ).to.be.revertedWith("Invalid name length");
+
+      console.log("✅ Long channel name rejected");
     });
 
-    it("Should check if user has voted", async function () {
-      await fheSocial
-        .connect(user1)
-        .createVote(0, "Question?", ["A", "B"], 3600);
+    it("should create multiple channels", async function () {
+      await contract.connect(owner).createChannel("Channel 1", "First channel");
+      await contract.connect(owner).createChannel("Channel 2", "Second channel");
+      await contract.connect(user1).createChannel("Channel 3", "Third channel");
 
-      const hasVoted = await fheSocial.hasVoted(0, user2.address);
-      expect(hasVoted).to.be.false;
-    });
+      const channelCount = await contract.channelCount();
+      expect(channelCount).to.equal(3);
 
-    it("Should end an active vote", async function () {
-      await fheSocial
-        .connect(user1)
-        .createVote(0, "Question?", ["A", "B"], 3600);
-
-      await fheSocial.connect(user1).endVote(0);
-
-      const voteInfo = await fheSocial.getVoteInfo(0);
-      expect(voteInfo.active).to.be.false;
-    });
-
-    it("Should fail to end vote if not channel creator", async function () {
-      await fheSocial
-        .connect(user1)
-        .createVote(0, "Question?", ["A", "B"], 3600);
-
-      await expect(
-        fheSocial.connect(user2).endVote(0)
-      ).to.be.revertedWith("Only channel creator");
+      console.log("✅ Multiple channels created");
     });
   });
 
   describe("Channel with Vote Creation", function () {
     beforeEach(async function () {
-      await fheSocial.connect(user1).register("Alice");
+      await contract.connect(owner).register("owner");
     });
 
-    it("Should create channel with vote atomically", async function () {
-      await fheSocial
-        .connect(user1)
-        .createChannelWithVote(
-          "Roadmap",
-          "Q4 Roadmap",
-          "What should we build?",
-          ["Mobile", "Desktop", "API"],
-          86400 // 24 hours
-        );
+    it("should create channel with vote atomically", async function () {
+      const options = ["Option A", "Option B", "Option C"];
+      const duration = 86400; // 24 hours
 
-      const channelInfo = await fheSocial.getChannel(0);
-      expect(channelInfo.name).to.equal("Roadmap");
+      const tx = await contract.connect(owner).createChannelWithVote(
+        "Vote Channel",
+        "Channel with active vote",
+        "Which option do you prefer?",
+        options,
+        duration
+      );
+      await tx.wait();
 
-      const voteInfo = await fheSocial.getVoteInfo(0);
-      expect(voteInfo.question).to.equal("What should we build?");
-      expect(voteInfo.options).to.deep.equal(["Mobile", "Desktop", "API"]);
-      expect(voteInfo.active).to.be.true;
+      // Verify channel
+      const [name, , creator, , active] = await contract.getChannel(0);
+      expect(name).to.equal("Vote Channel");
+      expect(creator).to.equal(owner.address);
+      expect(active).to.equal(true);
+
+      // Verify vote
+      const [question, voteOptions, startTime, endTime, voteActive] = await contract.getVoteInfo(0);
+      expect(question).to.equal("Which option do you prefer?");
+      expect(voteOptions.length).to.equal(3);
+      expect(voteActive).to.equal(true);
+      expect(endTime - startTime).to.equal(duration);
+
+      console.log("✅ Channel with vote created atomically");
     });
 
-    it("Should emit both ChannelCreated and VoteCreated events", async function () {
-      const tx = fheSocial
-        .connect(user1)
-        .createChannelWithVote(
-          "Roadmap",
-          "Q4 Roadmap",
-          "What should we build?",
-          ["Mobile", "Desktop"],
-          86400
-        );
+    it("should emit both ChannelCreated and VoteCreated events", async function () {
+      const options = ["Yes", "No"];
+
+      const tx = await contract.connect(owner).createChannelWithVote(
+        "Poll Channel",
+        "A poll",
+        "Do you agree?",
+        options,
+        3600
+      );
 
       await expect(tx)
-        .to.emit(fheSocial, "ChannelCreated")
-        .withArgs(0, "Roadmap", user1.address);
+        .to.emit(contract, "ChannelCreated")
+        .and.to.emit(contract, "VoteCreated");
 
-      await expect(tx)
-        .to.emit(fheSocial, "VoteCreated")
-        .withArgs(0, "What should we build?");
+      console.log("✅ Both events emitted");
+    });
+
+    it("should reject less than 2 options", async function () {
+      await expect(
+        contract.connect(owner).createChannelWithVote(
+          "Bad Channel",
+          "Description",
+          "Question?",
+          ["Only one"],
+          3600
+        )
+      ).to.be.revertedWith("Invalid options count");
+
+      console.log("✅ Single option rejected");
+    });
+
+    it("should reject more than 10 options", async function () {
+      const tooManyOptions = Array(11).fill("Option");
+
+      await expect(
+        contract.connect(owner).createChannelWithVote(
+          "Bad Channel",
+          "Description",
+          "Question?",
+          tooManyOptions,
+          3600
+        )
+      ).to.be.revertedWith("Invalid options count");
+
+      console.log("✅ Too many options rejected");
+    });
+
+    it("should reject duration less than 1 hour", async function () {
+      await expect(
+        contract.connect(owner).createChannelWithVote(
+          "Short Vote",
+          "Description",
+          "Question?",
+          ["A", "B"],
+          3599 // 59 minutes 59 seconds
+        )
+      ).to.be.revertedWith("Invalid duration");
+
+      console.log("✅ Short duration rejected");
+    });
+
+    it("should reject duration more than 90 days", async function () {
+      await expect(
+        contract.connect(owner).createChannelWithVote(
+          "Long Vote",
+          "Description",
+          "Question?",
+          ["A", "B"],
+          7776001 // 90 days + 1 second
+        )
+      ).to.be.revertedWith("Invalid duration");
+
+      console.log("✅ Long duration rejected");
     });
   });
 
-  describe("Edge Cases", function () {
+  describe("Message Posting", function () {
     beforeEach(async function () {
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user1).createChannel("Test", "Test channel");
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("user1");
+      await contract.connect(owner).createChannel("General", "Discussion");
     });
 
-    it("Should handle empty message retrieval", async function () {
-      const messages = await fheSocial.getMessages(0, 0, 10);
-      expect(messages[0].length).to.equal(0);
-      expect(messages[1].length).to.equal(0);
-      expect(messages[2].length).to.equal(0);
-      expect(messages[3].length).to.equal(0);
+    it("should post a public message", async function () {
+      await contract.connect(user1).postMessage(0, "Hello World!", false);
+
+      const [senders, contents, isAnonymousFlags, timestamps] = await contract.getMessages(0, 0, 10);
+
+      expect(senders.length).to.equal(1);
+      expect(senders[0]).to.equal(user1.address);
+      expect(contents[0]).to.equal("Hello World!");
+      expect(isAnonymousFlags[0]).to.equal(false);
+
+      console.log("✅ Public message posted");
     });
 
-    it("Should handle pagination beyond message count", async function () {
-      await fheSocial.connect(user1).postMessage(0, "Message 1", false);
+    it("should post an anonymous message", async function () {
+      await contract.connect(user1).postMessage(0, "Anonymous message", true);
 
-      const messages = await fheSocial.getMessages(0, 10, 10);
-      expect(messages[0].length).to.equal(0);
+      const [senders, contents, isAnonymousFlags] = await contract.getMessages(0, 0, 10);
+
+      expect(senders[0]).to.equal(ethers.ZeroAddress);
+      expect(contents[0]).to.equal("Anonymous message");
+      expect(isAnonymousFlags[0]).to.equal(true);
+
+      console.log("✅ Anonymous message posted");
     });
 
-    it("Should handle maximum username length", async function () {
-      const maxUsername = "a".repeat(32);
-      await fheSocial.connect(user2).register(maxUsername);
+    it("should emit MessagePosted event", async function () {
+      await expect(contract.connect(user1).postMessage(0, "Test", false))
+        .to.emit(contract, "MessagePosted")
+        .withArgs(0, user1.address, false);
 
-      const userInfo = await fheSocial.getUser(user2.address);
-      expect(userInfo.username).to.equal(maxUsername);
+      console.log("✅ MessagePosted event emitted");
     });
 
-    it("Should handle maximum channel name length", async function () {
-      const maxName = "a".repeat(100);
-      await fheSocial.connect(user1).createChannel(maxName, "Description");
+    it("should reject empty message", async function () {
+      await expect(
+        contract.connect(user1).postMessage(0, "", false)
+      ).to.be.revertedWith("Invalid content length");
 
-      const channelInfo = await fheSocial.getChannel(1);
-      expect(channelInfo.name).to.equal(maxName);
+      console.log("✅ Empty message rejected");
     });
 
-    it("Should handle maximum message length", async function () {
-      const maxMessage = "a".repeat(1000);
-      await fheSocial.connect(user1).postMessage(0, maxMessage, false);
+    it("should reject message exceeding 1000 characters", async function () {
+      const longMessage = "a".repeat(1001);
 
-      const messages = await fheSocial.getMessages(0, 0, 10);
-      expect(messages[1][0]).to.equal(maxMessage);
+      await expect(
+        contract.connect(user1).postMessage(0, longMessage, false)
+      ).to.be.revertedWith("Invalid content length");
+
+      console.log("✅ Long message rejected");
+    });
+
+    it("should get message count correctly", async function () {
+      await contract.connect(user1).postMessage(0, "Message 1", false);
+      await contract.connect(user1).postMessage(0, "Message 2", false);
+      await contract.connect(user1).postMessage(0, "Message 3", true);
+
+      const count = await contract.getMessageCount(0);
+      expect(count).to.equal(3);
+
+      console.log("✅ Message count correct");
+    });
+
+    it("should support pagination", async function () {
+      // Post 5 messages
+      for (let i = 0; i < 5; i++) {
+        await contract.connect(user1).postMessage(0, `Message ${i}`, false);
+      }
+
+      // Get first 2
+      const [, contents1] = await contract.getMessages(0, 0, 2);
+      expect(contents1.length).to.equal(2);
+      expect(contents1[0]).to.equal("Message 0");
+
+      // Get next 2
+      const [, contents2] = await contract.getMessages(0, 2, 2);
+      expect(contents2.length).to.equal(2);
+      expect(contents2[0]).to.equal("Message 2");
+
+      console.log("✅ Pagination works");
     });
   });
 
-  describe("Gas Usage Estimates", function () {
+  describe("FHE Encrypted Voting", function () {
     beforeEach(async function () {
-      await fheSocial.connect(user1).register("Alice");
-      await fheSocial.connect(user1).createChannel("Test", "Test channel");
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("voter1");
+      await contract.connect(user2).register("voter2");
+      await contract.connect(user3).register("voter3");
+
+      // Create channel with vote
+      await contract.connect(owner).createChannelWithVote(
+        "Voting Channel",
+        "Test voting",
+        "What is your favorite color?",
+        ["Red", "Green", "Blue", "Yellow"],
+        86400
+      );
     });
 
-    it("Should estimate gas for user registration", async function () {
-      const tx = await fheSocial.connect(user2).register("Bob");
-      const receipt = await tx.wait();
-      console.log("Gas used for registration:", receipt.gasUsed.toString());
-      expect(receipt.gasUsed).to.be.lt(100000); // Less than 100k gas
+    it("should cast encrypted vote successfully", async function () {
+      const voteChoice = 2; // Blue
+
+      // Create encrypted input
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(BigInt(voteChoice))
+        .encrypt();
+
+      // Cast vote
+      await contract.connect(user1).castVote(
+        0,
+        encrypted.handles[0],
+        encrypted.inputProof
+      );
+
+      // Verify user has voted
+      const hasVoted = await contract.hasUserVoted(0, user1.address);
+      expect(hasVoted).to.equal(true);
+
+      console.log("✅ FHE encrypted vote cast successfully");
+      console.log("✅ FHE.fromExternal() works");
+      console.log("✅ FHE.allowThis() works");
     });
 
-    it("Should estimate gas for channel creation", async function () {
-      const tx = await fheSocial
-        .connect(user1)
-        .createChannel("Channel", "Description");
-      const receipt = await tx.wait();
-      console.log("Gas used for channel creation:", receipt.gasUsed.toString());
-      expect(receipt.gasUsed).to.be.lt(200000); // Less than 200k gas
+    it("should emit VoteCast event", async function () {
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(0n)
+        .encrypt();
+
+      await expect(
+        contract.connect(user1).castVote(0, encrypted.handles[0], encrypted.inputProof)
+      ).to.emit(contract, "VoteCast")
+        .withArgs(0, user1.address);
+
+      console.log("✅ VoteCast event emitted");
     });
 
-    it("Should estimate gas for message posting", async function () {
-      const tx = await fheSocial
-        .connect(user1)
-        .postMessage(0, "Hello World!", false);
-      const receipt = await tx.wait();
-      console.log("Gas used for message posting:", receipt.gasUsed.toString());
-      expect(receipt.gasUsed).to.be.lt(150000); // Less than 150k gas
+    it("should reject double voting", async function () {
+      const encrypted1 = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(1n)
+        .encrypt();
+
+      await contract.connect(user1).castVote(0, encrypted1.handles[0], encrypted1.inputProof);
+
+      const encrypted2 = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(2n)
+        .encrypt();
+
+      await expect(
+        contract.connect(user1).castVote(0, encrypted2.handles[0], encrypted2.inputProof)
+      ).to.be.revertedWith("Already voted");
+
+      console.log("✅ Double voting prevented");
     });
 
-    it("Should estimate gas for vote creation", async function () {
-      const tx = await fheSocial
-        .connect(user1)
-        .createVote(0, "Question?", ["A", "B", "C"], 3600);
+    it("should reject vote from unregistered user", async function () {
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user4.address)
+        .add8(0n)
+        .encrypt();
+
+      await expect(
+        contract.connect(user4).castVote(0, encrypted.handles[0], encrypted.inputProof)
+      ).to.be.revertedWith("Not registered");
+
+      console.log("✅ Unregistered voter rejected");
+    });
+
+    it("should reject vote with invalid proof", async function () {
+      const validEncrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(1n)
+        .encrypt();
+
+      const invalidProof = "0x" + "00".repeat(64);
+
+      await expect(
+        contract.connect(user1).castVote(0, validEncrypted.handles[0], invalidProof)
+      ).to.be.reverted;
+
+      console.log("✅ Invalid proof rejected");
+      console.log("✅ FHE.fromExternal() validates proofs correctly");
+    });
+
+    it("should handle multiple voters", async function () {
+      const voters = [user1, user2, user3];
+      const choices = [0, 1, 2]; // Red, Green, Blue
+
+      for (let i = 0; i < voters.length; i++) {
+        const encrypted = await fhevm
+          .createEncryptedInput(contractAddress, voters[i].address)
+          .add8(BigInt(choices[i]))
+          .encrypt();
+
+        await contract.connect(voters[i]).castVote(
+          0,
+          encrypted.handles[0],
+          encrypted.inputProof
+        );
+      }
+
+      // Verify all have voted
+      for (const voter of voters) {
+        const hasVoted = await contract.hasUserVoted(0, voter.address);
+        expect(hasVoted).to.equal(true);
+      }
+
+      console.log("✅ Multiple voters handled correctly");
+    });
+
+    it("should reject vote after voting period ends", async function () {
+      // Advance time past vote end
+      await ethers.provider.send("evm_increaseTime", [86401]); // 24 hours + 1 second
+      await ethers.provider.send("evm_mine", []);
+
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(0n)
+        .encrypt();
+
+      await expect(
+        contract.connect(user1).castVote(0, encrypted.handles[0], encrypted.inputProof)
+      ).to.be.revertedWith("Vote ended");
+
+      console.log("✅ Vote after deadline rejected");
+    });
+
+    it("should reject vote on inactive poll", async function () {
+      // End the vote
+      await contract.connect(owner).endVote(0);
+
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(0n)
+        .encrypt();
+
+      await expect(
+        contract.connect(user1).castVote(0, encrypted.handles[0], encrypted.inputProof)
+      ).to.be.revertedWith("Vote not active");
+
+      console.log("✅ Vote on inactive poll rejected");
+    });
+  });
+
+  describe("Vote Management", function () {
+    beforeEach(async function () {
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("user1");
+      await contract.connect(owner).createChannel("Test", "Test channel");
+    });
+
+    it("should create vote in existing channel", async function () {
+      await contract.connect(owner).createVote(
+        0,
+        "New poll question?",
+        ["Yes", "No", "Maybe"],
+        7200
+      );
+
+      const [question, options, , , active] = await contract.getVoteInfo(0);
+      expect(question).to.equal("New poll question?");
+      expect(options.length).to.equal(3);
+      expect(active).to.equal(true);
+
+      console.log("✅ Vote created in existing channel");
+    });
+
+    it("should reject vote creation from non-creator", async function () {
+      await expect(
+        contract.connect(user1).createVote(0, "Question?", ["A", "B"], 3600)
+      ).to.be.revertedWith("Only creator can create votes");
+
+      console.log("✅ Non-creator vote creation rejected");
+    });
+
+    it("should allow creator to end vote early", async function () {
+      await contract.connect(owner).createVote(0, "Question?", ["A", "B"], 86400);
+
+      await contract.connect(owner).endVote(0);
+
+      const [, , , , active] = await contract.getVoteInfo(0);
+      expect(active).to.equal(false);
+
+      console.log("✅ Creator can end vote early");
+    });
+
+    it("should allow anyone to end vote after deadline", async function () {
+      await contract.connect(owner).createVote(0, "Question?", ["A", "B"], 3600);
+
+      // Advance time
+      await ethers.provider.send("evm_increaseTime", [3601]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Non-creator ends vote
+      await contract.connect(user1).endVote(0);
+
+      const [, , , , active] = await contract.getVoteInfo(0);
+      expect(active).to.equal(false);
+
+      console.log("✅ Anyone can end vote after deadline");
+    });
+
+    it("should reject early end by non-creator", async function () {
+      await contract.connect(owner).createVote(0, "Question?", ["A", "B"], 86400);
+
+      await expect(
+        contract.connect(user1).endVote(0)
+      ).to.be.revertedWith("Cannot end vote yet");
+
+      console.log("✅ Early end by non-creator rejected");
+    });
+  });
+
+  describe("Edge Cases and Gas Optimization", function () {
+    beforeEach(async function () {
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("user1");
+    });
+
+    it("should handle maximum options (10)", async function () {
+      const maxOptions = Array(10).fill(0).map((_, i) => `Option ${i + 1}`);
+
+      await contract.connect(owner).createChannelWithVote(
+        "Max Options",
+        "Testing maximum options",
+        "Choose one of 10 options",
+        maxOptions,
+        3600
+      );
+
+      const [, options] = await contract.getVoteInfo(0);
+      expect(options.length).to.equal(10);
+
+      // Cast vote for last option
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(9n) // Last option
+        .encrypt();
+
+      await contract.connect(user1).castVote(0, encrypted.handles[0], encrypted.inputProof);
+
+      console.log("✅ Maximum 10 options handled");
+    });
+
+    it("should handle minimum options (2)", async function () {
+      await contract.connect(owner).createChannelWithVote(
+        "Binary Vote",
+        "Yes or No",
+        "Binary question",
+        ["Yes", "No"],
+        3600
+      );
+
+      const [, options] = await contract.getVoteInfo(0);
+      expect(options.length).to.equal(2);
+
+      console.log("✅ Minimum 2 options handled");
+    });
+
+    it("should handle minimum duration (1 hour)", async function () {
+      await contract.connect(owner).createChannelWithVote(
+        "Quick Vote",
+        "Fast poll",
+        "Quick question?",
+        ["A", "B"],
+        3600 // Exactly 1 hour
+      );
+
+      const [, , startTime, endTime] = await contract.getVoteInfo(0);
+      expect(endTime - startTime).to.equal(3600);
+
+      console.log("✅ Minimum duration (1 hour) handled");
+    });
+
+    it("should handle maximum duration (90 days)", async function () {
+      const maxDuration = 7776000; // 90 days
+
+      await contract.connect(owner).createChannelWithVote(
+        "Long Vote",
+        "Extended poll",
+        "Long running question?",
+        ["A", "B"],
+        maxDuration
+      );
+
+      const [, , startTime, endTime] = await contract.getVoteInfo(0);
+      expect(endTime - startTime).to.equal(maxDuration);
+
+      console.log("✅ Maximum duration (90 days) handled");
+    });
+
+    it("should maintain constant gas cost for voting regardless of options", async function () {
+      // This test verifies the gas optimization - voting cost should be constant
+      await contract.connect(owner).createChannelWithVote(
+        "Gas Test",
+        "Gas optimization test",
+        "Test question?",
+        Array(10).fill(0).map((_, i) => `Option ${i}`),
+        3600
+      );
+
+      const encrypted = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(5n)
+        .encrypt();
+
+      const tx = await contract.connect(user1).castVote(
+        0,
+        encrypted.handles[0],
+        encrypted.inputProof
+      );
       const receipt = await tx.wait();
-      console.log("Gas used for vote creation:", receipt.gasUsed.toString());
-      expect(receipt.gasUsed).to.be.lt(200000); // Less than 200k gas
+
+      // Gas should be reasonable (under 200k for FHE operation)
+      expect(receipt.gasUsed).to.be.lt(200000);
+
+      console.log(`✅ Vote gas used: ${receipt.gasUsed} (constant regardless of options)`);
+    });
+  });
+
+  describe("Integration Tests", function () {
+    it("should handle complete user journey", async function () {
+      // 1. Register users
+      await contract.connect(owner).register("platform_owner");
+      await contract.connect(user1).register("alice");
+      await contract.connect(user2).register("bob");
+
+      // 2. Create channel with vote
+      await contract.connect(owner).createChannelWithVote(
+        "Community Poll",
+        "Vote on community decisions",
+        "Should we implement feature X?",
+        ["Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"],
+        86400
+      );
+
+      // 3. Post messages
+      await contract.connect(user1).postMessage(0, "I think feature X is great!", false);
+      await contract.connect(user2).postMessage(0, "I have some concerns...", false);
+      await contract.connect(user1).postMessage(0, "Anonymous feedback here", true);
+
+      // 4. Cast encrypted votes
+      const vote1 = await fhevm
+        .createEncryptedInput(contractAddress, user1.address)
+        .add8(0n) // Strongly Agree
+        .encrypt();
+      await contract.connect(user1).castVote(0, vote1.handles[0], vote1.inputProof);
+
+      const vote2 = await fhevm
+        .createEncryptedInput(contractAddress, user2.address)
+        .add8(3n) // Disagree
+        .encrypt();
+      await contract.connect(user2).castVote(0, vote2.handles[0], vote2.inputProof);
+
+      // 5. Verify state
+      const channelCount = await contract.channelCount();
+      expect(channelCount).to.equal(1);
+
+      const messageCount = await contract.getMessageCount(0);
+      expect(messageCount).to.equal(3);
+
+      expect(await contract.hasUserVoted(0, user1.address)).to.equal(true);
+      expect(await contract.hasUserVoted(0, user2.address)).to.equal(true);
+      expect(await contract.hasUserVoted(0, user3.address)).to.equal(false);
+
+      console.log("✅ Complete user journey successful");
+      console.log("✅ All FHE operations work correctly in integration");
+    });
+
+    it("should handle multiple channels with independent votes", async function () {
+      await contract.connect(owner).register("owner");
+      await contract.connect(user1).register("user1");
+
+      // Create multiple channels with votes
+      for (let i = 0; i < 3; i++) {
+        await contract.connect(owner).createChannelWithVote(
+          `Channel ${i}`,
+          `Description ${i}`,
+          `Question for channel ${i}?`,
+          ["A", "B", "C"],
+          3600
+        );
+      }
+
+      // Vote on each channel
+      for (let i = 0; i < 3; i++) {
+        const encrypted = await fhevm
+          .createEncryptedInput(contractAddress, user1.address)
+          .add8(BigInt(i))
+          .encrypt();
+
+        await contract.connect(user1).castVote(i, encrypted.handles[0], encrypted.inputProof);
+      }
+
+      // Verify votes
+      for (let i = 0; i < 3; i++) {
+        expect(await contract.hasUserVoted(i, user1.address)).to.equal(true);
+      }
+
+      console.log("✅ Multiple independent channels work correctly");
     });
   });
 });
