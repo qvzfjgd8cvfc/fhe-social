@@ -1,3 +1,7 @@
+/**
+ * FHESocial Contract Tests
+ * Comprehensive test suite for FHE-encrypted social platform
+ */
 const { expect } = require("chai");
 const { ethers, fhevm } = require("hardhat");
 
