@@ -1,3 +1,7 @@
+/**
+ * Seed script - create sample voting channels
+ * Usage: npx hardhat run scripts/create-channels.js --network sepolia
+ */
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");

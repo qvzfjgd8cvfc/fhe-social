@@ -1,3 +1,7 @@
+/**
+ * Deploy FHESocial contract to network
+ * Usage: npx hardhat run scripts/deploy.js --network sepolia
+ */
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
