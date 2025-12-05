@@ -6,13 +6,17 @@ import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * @title FHESocial
+ * @author VoxCircle Team
  * @notice Privacy-preserving social platform with encrypted voting
- * @dev Updated for fhEVM v0.9.1
- * Features:
- * 1. User registration (plaintext)
- * 2. Create channels and voting polls (plaintext)
- * 3. Encrypted voting using FHE
- * 4. Anonymous or public messages (plaintext)
+ * @dev Built on Zama fhEVM v0.9.1
+ *
+ * Key Features:
+ * - User registration with username
+ * - Channel creation and management
+ * - FHE-encrypted voting (votes remain private)
+ * - Anonymous or public messaging
+ *
+ * Security: Uses euint8 for vote storage, preventing vote manipulation
  */
 contract FHESocial is ZamaEthereumConfig {
     // ============ State Variables ============
