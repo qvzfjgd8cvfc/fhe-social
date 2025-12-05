@@ -2,7 +2,11 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@fhevm/hardhat-plugin");
 require("dotenv").config();
 
-/** @type import('hardhat/config').HardhatUserConfig */
+/**
+ * Hardhat configuration for VoxCircle
+ * Uses fhEVM plugin for FHE support
+ * @type import('hardhat/config').HardhatUserConfig
+ */
 module.exports = {
   solidity: {
     version: "0.8.24",
