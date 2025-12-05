@@ -17,13 +17,19 @@
   },
   "keywords": [
     "fhe",
+    "fhevm",
     "social",
     "voting",
     "privacy",
     "ethereum",
     "smart-contracts",
-    "zama"
+    "zama",
+    "homomorphic-encryption"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xsongsu/VoxCircle"
+  },
   "author": "",
   "license": "MIT",
   "devDependencies": {
