@@ -551,8 +551,8 @@ FHE.allowThis(encryptedOptionIndex);  // Only contract can access
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/voxcircle.git
-cd voxcircle
+git clone https://github.com/0xsongsu/VoxCircle.git
+cd VoxCircle
 
 # Install root dependencies
 npm install
