@@ -1,10 +1,9 @@
+/**
+ * Channel Management Tests
+ * Tests for channel creation, messaging, and pagination
+ */
 const { expect } = require("chai");
 const { ethers, fhevm } = require("hardhat");
-
-/**
- * Channel Management Tests for VoxCircle FHESocial
- * Focused tests for channel creation, messaging, and management
- */
 describe("FHESocial - Channel Management", function () {
   let contract;
   let owner, user1, user2, unregistered;

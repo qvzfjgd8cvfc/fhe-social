@@ -1,11 +1,9 @@
+/**
+ * Encrypted Voting Tests
+ * Tests for FHE-encrypted voting with euint8 storage
+ */
 const { expect } = require("chai");
 const { ethers, fhevm } = require("hardhat");
-
-/**
- * Encrypted Voting Tests for VoxCircle FHESocial
- * Focused tests for FHE-encrypted voting functionality
- * Tests FHE.fromExternal(), FHE.allowThis(), and euint8 operations
- */
 describe("FHESocial - Encrypted Voting", function () {
   let contract;
   let owner, voter1, voter2, voter3, unregistered;

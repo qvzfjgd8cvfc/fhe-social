@@ -1,10 +1,9 @@
+/**
+ * User Registration Tests
+ * Tests for user registration, validation, and gas usage
+ */
 const { expect } = require("chai");
 const { ethers, fhevm } = require("hardhat");
-
-/**
- * User Registration Tests for VoxCircle FHESocial
- * Focused tests for user registration functionality
- */
 describe("FHESocial - User Registration", function () {
   let contract;
   let owner, user1, user2;
