@@ -18,7 +18,7 @@
 
 | Resource | Link |
 |----------|------|
-| **Live Demo** | https://voxcircle-songsus-projects.vercel.app |
+| **Live Demo** | https://voxcircle-zeta.vercel.app |
 | **Contract** | [`0xaD4341d067ad0022Fdb22ECCA797DfC44966dd8d`](https://sepolia.etherscan.io/address/0xaD4341d067ad0022Fdb22ECCA797DfC44966dd8d) |
 | **Network** | Ethereum Sepolia Testnet |
 | **fhEVM Version** | 0.9.1 |
@@ -551,7 +551,7 @@ FHE.allowThis(encryptedOptionIndex);  // Only contract can access
 
 ```bash
 # Clone repository
-git clone https://github.com/0xsongsu/VoxCircle.git
+git clone https://github.com/VoxCircle/VoxCircle.git
 cd VoxCircle
 
 # Install root dependencies
@@ -575,7 +575,7 @@ Visit http://localhost:8080
 
 ### Using the Live Demo
 
-1. Connect wallet at https://voxcircle-songsus-projects.vercel.app
+1. Connect wallet at https://voxcircle-zeta.vercel.app
 2. Switch to Sepolia network
 3. Register username
 4. Browse channels or create new one
@@ -805,6 +805,6 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 **Built with Zama FHE for the future of private governance**
 
-[Live Demo](https://voxcircle-songsus-projects.vercel.app) | [Contract](https://sepolia.etherscan.io/address/0xaD4341d067ad0022Fdb22ECCA797DfC44966dd8d) | [Documentation](https://docs.zama.ai/fhevm)
+[Live Demo](https://voxcircle-zeta.vercel.app) | [Contract](https://sepolia.etherscan.io/address/0xaD4341d067ad0022Fdb22ECCA797DfC44966dd8d) | [Documentation](https://docs.zama.ai/fhevm)
 
 </div>
