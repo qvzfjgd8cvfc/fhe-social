@@ -1,6 +1,6 @@
 {
   "name": "voxcircle",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "VoxCircle - FHE-powered privacy-preserving social platform with encrypted voting",
   "scripts": {
     "compile": "hardhat compile",
